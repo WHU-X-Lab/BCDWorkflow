@@ -52,12 +52,9 @@ python training/trainClassify.py
 python inference/predict.py --model_path ./save_models/ --input_dir ./test_pairs/
 ```
 
-## Development Status
- This repository contains an initial implementation. Code structure and style will be refined in subsequent updates. 
-
 ## 📚 Citation
 <br/>If you use this code or find the paper helpful, please cite:
-<br/><br/>
+<br/>
 ```bibtex
 @article{zhang2025workflow,
 title={A workflow of deep models with concept learning and domain-specific attention for change detection in vector building footprints},
@@ -66,4 +63,5 @@ journal={Submitted},
 year={2025}}
 ```
 
-
+## Development Status
+ This repository contains an initial implementation. Code structure and style will be refined in subsequent updates. 
