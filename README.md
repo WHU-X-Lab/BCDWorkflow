@@ -27,7 +27,7 @@ The study addresses a challenging change detection problem in heterogeneous vect
 
 ```python
 ├── models/              # Implementations of CNN backbones (AlexNet, GoogLeNet, ResNet, etc.)
-├── save_models/              # Model weight files(.pth) saved during different stages
+├── save_models/         # Model weight files(.pth) saved during different stages
 ├── training/            # Multi-stage training scripts for discrepancy, displacement, and change tasks
 ├── inference/           # Scripts to run the full workflow on new data
 ├── utils/               # Helper functions (attention mechanisms, sampling, evaluation)
@@ -40,7 +40,7 @@ The study addresses a challenging change detection problem in heterogeneous vect
 pip install torch torchvision opencv-python scikit-learn 
 ```
 <br/>2. Prepare Data
-<br/><br/>All the dataset haave been published in figshare: [Building Dataset](https://doi.org/10.6084/m9.figshare.28102958)<br/>
+<br/><br/>All the dataset have been published in figshare: [Building Dataset](https://doi.org/10.6084/m9.figshare.28102958)<br/>
 <br/>3. Train the Workflow<br/><br/>Stage-by-stage training:<br/><br/>
 ```bash
 python training/trainDiifNet.py --config configs/config_diff.py
