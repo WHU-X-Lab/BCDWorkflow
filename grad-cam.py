@@ -5,9 +5,7 @@ import torch
 import torchvision.transforms as transforms
 from torchvision import models
 import json
-from config import *
-from GoogleNet import GoogLeNet
-from model import AlexNet
+
 
 # 图片预处理
 def img_preprocess(img_in):

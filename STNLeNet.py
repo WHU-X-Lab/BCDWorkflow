@@ -46,10 +46,10 @@ class STNLeNet(nn.Module):
         # theta[:, 1:, 0:1] = self.theta_fixed
         # print("修改后的theta:", theta)
         # Grid generator
-        grid = F.affine_grid(theta, x.size())
+        grid = F.affine_grid(theta, x.size(), align_corners=True)
         # Sampler
         # x = F.grid_sample(x, grid)
-        x1 = F.grid_sample(x, grid)
+        x1 = F.grid_sample(x, grid, align_corners=True)
         # 两个并行的STN
         # Localisation net
         xs2 = self.localization(x)  # 卷积
@@ -61,9 +61,9 @@ class STNLeNet(nn.Module):
         # theta2[:, 1:, 0:1] = self.theta_fixed
         # print("修改后的theta:", theta)
         # Grid generator
-        grid2 = F.affine_grid(theta2, x.size())
+        grid2 = F.affine_grid(theta2, x.size(), align_corners=True)
         # Sampler
-        x2 = F.grid_sample(x, grid2)
+        x2 = F.grid_sample(x, grid2, align_corners=True)
         # return x1, theta
         return x1, x2,theta,theta2
     def forward(self, x):

@@ -16,10 +16,14 @@ class BuildingDataset(Dataset):
         self.get_img_info(data_dir)
         self.transform = transform
         img_paths = os.listdir(data_dir)
+        img_paths = [img_path for img_path in img_paths if img_path.isdigit()]
         self.classes_for_all_imgs = []
         for img_path in img_paths:
             img_path11 = os.path.join(data_dir, img_path)
-            img_paths1 = os.listdir(img_path11)
+            valid_extensions = ('.jpg', '.jpeg', '.png', '.bmp')  # 添加你希望支持的图片格式
+            img_paths1 = [f for f in os.listdir(img_path11) if f.endswith(valid_extensions)]
+            # img_paths1 = os.listdir(img_path11)
+            # print(f"Total img_paths1: {len(img_paths1)}")
             for img_path1 in img_paths1:
                 class_id = 0
                 if img_path == '0':
@@ -29,6 +33,8 @@ class BuildingDataset(Dataset):
                 self.classes_for_all_imgs.append(class_id)
 
     def __getitem__(self, index):
+        if index < 0 or index >= len(self.data_info):
+            raise IndexError(f"Index {index} out of range for data_info of length {len(self.data_info)}")
         path_img, label = self.data_info[index]
         # 打开图片，默认为PIL，需要转成RGB
         img = Image.open(path_img).convert('RGB')
@@ -53,6 +59,8 @@ class BuildingDataset(Dataset):
                         label = int(sub_dir.name) if sub_dir.name.isdigit() else -1
                         data_info.append((img, label))
         self.data_info = data_info
+        print(f"Total data samples: {len(self.data_info)}")
 
     def get_classes_for_all_imgs(self):
+        # print(f"Total classes returned: {len(self.classes_for_all_imgs)}")
         return self.classes_for_all_imgs

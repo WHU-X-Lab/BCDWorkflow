@@ -14,7 +14,7 @@ from config_shift import *
 from dataset import BuildingDataset
 import pandas as pd
 from ShiftNet import ShiftNet
-from LeNet5 import LeNet5
+# from LeNet5 import LeNet5
 import os
 import numpy as np
 from torchvision import transforms
@@ -38,29 +38,26 @@ transform = transforms.Compose([
     # train_stn
     # transforms.Normalize(mean=[0.8988469, 0.93813044, 0.9376824], std=[0.17884357, 0.09582038, 0.13065177])
     # train_shift
-    transforms.Normalize(mean=[0.89731014, 0.9391688, 0.9396487], std=[0.18013711, 0.09479259, 0.12887895])
+    transforms.Normalize(mean=[0.89742166, 0.9391391, 0.9396217], std=[0.18003607, 0.09479778, 0.1287403])
 ])
 transform_val = transforms.Compose([
     transforms.Resize((224, 224)),
-    transforms.RandomHorizontalFlip(),
-    transforms.RandomVerticalFlip(),
-    transforms.RandomRotation(45),
     transforms.ToTensor(),
     # test_rect_train
     # transforms.Normalize(mean = [0.70381516, 0.8888911, 0.92238843], std =  [0.40284097, 0.11763619, 0.15052465])
     # valid_stn
     # transforms.Normalize(mean=[0.8980922, 0.9372042, 0.93724376], std=[0.18020877, 0.09663033, 0.13077204])
     # valid_shift
-    transforms.Normalize(mean=[0.89881814, 0.9392697, 0.9402372], std=[0.17823705, 0.09425104, 0.12656842])
+    transforms.Normalize(mean=[0.8978054, 0.9395365, 0.94048536], std=[0.17915142, 0.09420377, 0.12782192])
 ])
 
 df = pd.DataFrame(columns=['loss', 'accuracy'])
 # 定义训练函数
 def train(dataloader, model, loss_fn, optimizer, epoch):
     loss, current, n = 0.0, 0.0, 0
-    test_recall = torchmetrics.Recall(average='none', num_classes=N_FEATURES).to(device)
-    test_precision = torchmetrics.Precision(average='none', num_classes=N_FEATURES).to(device)
-    test_F1 = torchmetrics.F1Score(num_classes=N_FEATURES, average='none').to(device)
+    test_recall = torchmetrics.Recall(task="binary",average='none', num_classes=N_FEATURES).to(device)
+    test_precision = torchmetrics.Precision(task="binary",average='none', num_classes=N_FEATURES).to(device)
+    test_F1 = torchmetrics.classification.BinaryF1Score().to(device)
     model.train()
     # enumerate返回为数据和标签还有批次
     for batch, (X, y) in enumerate(dataloader):
@@ -102,9 +99,9 @@ def train(dataloader, model, loss_fn, optimizer, epoch):
     print("F1 of every test dataset class: ", total_F1)
     writer.add_scalar('Train/Loss', loss / n, epoch)
     writer.add_scalar('Train/Acc', current / n, epoch)
-    writer.add_scalar('Train/Recall', total_recall[1].item(), epoch)
-    writer.add_scalar('Train/Precision', total_precision[1].item(), epoch)
-    writer.add_scalar('Train/F1', total_F1[1].item(), epoch)
+    writer.add_scalar('Train/Recall', total_recall.item(), epoch)
+    writer.add_scalar('Train/Precision', total_precision.item(), epoch)
+    writer.add_scalar('Train/F1', total_F1.item(), epoch)
     test_precision.reset()
     test_recall.reset()
     test_F1.reset()
@@ -114,9 +111,9 @@ def val(dataloader, model, loss_fn, epoch):
     # 将模型转为验证模式
     model.eval()
     loss, current, n = 0.0, 0.0, 0
-    test_recall = torchmetrics.Recall(average='none', num_classes=N_FEATURES).to(device)
-    test_precision = torchmetrics.Precision(average='none', num_classes=N_FEATURES).to(device)
-    test_F1 = torchmetrics.F1Score(average='none', num_classes=N_FEATURES).to(device)
+    test_recall = torchmetrics.Recall(task="binary",average='none', num_classes=N_FEATURES).to(device)
+    test_precision = torchmetrics.Precision(task="binary",average='none', num_classes=N_FEATURES).to(device)
+    test_F1 = torchmetrics.classification.BinaryF1Score().to(device)
 
     # 非训练，推理期用到（测试时模型参数不用更新， 所以no_grad）
     # print(torch.no_grad)
@@ -146,9 +143,9 @@ def val(dataloader, model, loss_fn, epoch):
     print("F1 of every test dataset class: ", total_F1)
     writer.add_scalar('Valid/Loss', loss / n, epoch)
     writer.add_scalar('Valid/Acc', current / n, epoch)
-    writer.add_scalar('Valid/Recall', total_recall[1].item(), epoch)
-    writer.add_scalar('Valid/Precision', total_precision[1].item(), epoch)
-    writer.add_scalar('Valid/F1', total_F1[1].item(), epoch)
+    writer.add_scalar('Valid/Recall', total_recall.item(), epoch)
+    writer.add_scalar('Valid/Precision', total_precision.item(), epoch)
+    writer.add_scalar('Valid/F1', total_F1.item(), epoch)
     test_precision.reset()
     test_recall.reset()
     test_F1.reset()
@@ -156,19 +153,12 @@ def val(dataloader, model, loss_fn, epoch):
     return current / n
 
 if __name__ == '__main__':
-    s = f"Shiftnet,{train_dir},{valid_dir},batch{BATCH_SIZE},lr{LR},wd{weight_decay}"
+    s = f"Shift_Alexnet_fl,{train_dir},{valid_dir},batch{BATCH_SIZE},lr{LR},wd{weight_decay}"
     writer = SummaryWriter(comment=s)
     # build MyDataset
-    # class_sample_counts = [33288,4128] #compareTrain
-    # class_sample_counts = [38220, 5328]  # fixtrain_test2
-    # class_sample_counts = [32412,3984] # test_rect_train
-    # class_sample_counts = [38220, 5328]
-    # class_sample_counts = [15028,1832]
-    # class_sample_counts = [15394,1832]
-    # class_sample_counts = [45084,5496]
-    # class_sample_counts = [46876,6264] # 数据集不同类别的比例
-    # class_sample_counts = [46008,5794,1042]
     class_sample_counts = [2464, 1053]  # train_shift
+    # class_sample_counts = [7804, 603]  # train_diff
+    # class_sample_counts = [3118, 381]  # train_Area or train_Rect
     weights = 1. / torch.tensor(class_sample_counts, dtype=torch.float)
     # 这个 get_classes_for_all_imgs是关键
     train_data = BuildingDataset(data_dir=train_dir, transform=transform)
@@ -198,13 +188,16 @@ if __name__ == '__main__':
     net.to(device)
 
     # 定义损失函数（交叉熵损失）
-    loss_fn = nn.CrossEntropyLoss()
-    # loss_fn = focal_loss(alpha= [1.12196,9.20306],gamma=2,num_classes=2)
+    # 计算类别权重，权重应当是类别样本数量的倒数
+    class_weights = torch.tensor([1.0 / class_sample_counts[0], 1.0 / class_sample_counts[1]], dtype=torch.float).to(device)
+    # 将权重传递给损失函数
+    # loss_fn = nn.CrossEntropyLoss()
+    loss_fn = focal_loss(alpha= [0.29928,0.70072],gamma=2,num_classes=2)
     # loss_fn = nn.BCEWithLogitsLoss()
 
     # 定义优化器,SGD,
     # optimizer = optim.Adam(net.parameters(), lr=LR,weight_decay=weight_decay)
-    optimizer = optimizer = optim.SGD(net.parameters(), lr=LR, momentum=0.9, weight_decay=weight_decay_f)
+    optimizer = optim.SGD(net.parameters(), lr=LR, momentum=0.9, weight_decay=weight_decay_f)
 
     # 学习率按数组自定义变化
     lr_scheduler = lr_scheduler.MultiStepLR(optimizer, milestones=milestones, gamma=gamma)
@@ -238,5 +231,5 @@ if __name__ == '__main__':
             time_elapsed // 60, time_elapsed % 60))
 
     print(f'** Finished Training **')
-    df.to_csv('runs/train.txt', index=True, sep=';')
+    # df.to_csv('runs/train_shift.txt', index=True, sep=';')
 

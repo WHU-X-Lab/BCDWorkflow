@@ -17,6 +17,7 @@ class LeNet5(nn.Module):
         self.fc1 = nn.Linear(32 * 53 * 53, 120)
         self.fc2 = nn.Linear(120, 84)
         self.fc3 = nn.Linear(84, num_classes)
+        self.dropout = nn.Dropout(p=0.5)
 
     def forward(self, x):
         x = F.relu(self.conv1(x))  # (3,32,32) -> (16,28,28)
@@ -25,6 +26,7 @@ class LeNet5(nn.Module):
         x = self.pool2(x)  # (32,10,10) -> (32,5,5)
         x = x.view(-1, 32 * 53 * 53)  # (32,5,5) -> 35*5*5
         x = F.relu((self.fc1(x)))  # 120
+        x = self.dropout(x)  # 在训练时应用 Dropout
         x = F.relu((self.fc2(x)))  # 84
         x = self.fc3(x)  # 10
         return x

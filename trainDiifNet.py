@@ -7,10 +7,11 @@ import torchmetrics
 from torch.optim import lr_scheduler
 from torch.utils.data import WeightedRandomSampler, DataLoader
 from torch.utils.tensorboard import SummaryWriter
-
+from focal_loss import focal_loss
 from config_diff import *
 from dataset import BuildingDataset
 import pandas as pd
+# from GoogleNet import GoogLeNet
 from DifferenceNet import DifferenceNet
 from LeNet5 import LeNet5
 import os
@@ -28,50 +29,45 @@ torch.backends.cudnn.benchmark = False
 transform = transforms.Compose([
     transforms.Resize((224, 224)),
     transforms.RandomHorizontalFlip(),
+    transforms.RandomVerticalFlip(),
     transforms.RandomRotation(45),
     transforms.ToTensor(),
     # origin_diff
-    transforms.Normalize(mean=[0.918039, 0.9500407, 0.9504322], std=[0.15249752, 0.08265463, 0.11152452])
+    transforms.Normalize(mean=[0.9250994, 0.9588776, 0.961942], std=[0.14851464, 0.07733698, 0.101837136])
 ])
 transform_val = transforms.Compose([
     transforms.Resize((224, 224)),
-    transforms.RandomHorizontalFlip(),
-    transforms.RandomRotation(45),
     transforms.ToTensor(),
     # valid_diff
-    transforms.Normalize(mean=[0.9262576, 0.9596687, 0.9627389], std=[0.1469692, 0.07660995, 0.10082596])
-    # test_rect_train
-    # transforms.Normalize(mean = [0.70381516, 0.8888911, 0.92238843], std =  [0.40284097, 0.11763619, 0.15052465])
-    # test_area_train
-    # transforms.Normalize(mean=[0.84431416, 0.9468392, 0.96895444], std = [0.2916492, 0.08882934, 0.098634705])
-    # valid_test2
-    # transforms.Normalize(mean = [0.8904361, 0.9363585, 0.94014686], std = [0.165799, 0.09002642, 0.12338792])
-    # transforms.Normalize(mean = [0.8904361, 0.9363585, 0.94014686], std = [0.165799, 0.09002642, 0.12338792])
-    # compareValid
-    # transforms.Normalize(mean = [0.84808147, 0.9096524, 0.91053045], std = [0.20253241, 0.10373465, 0.14877456])
+    transforms.Normalize(mean=[0.9269143, 0.9598757, 0.96309], std=[0.14659306, 0.076451726, 0.10049462])
+    
 ])
 
 df = pd.DataFrame(columns=['loss', 'accuracy'])
 # 定义训练函数
 def train(dataloader, model, loss_fn, optimizer, epoch):
     loss, current, n = 0.0, 0.0, 0
-    test_recall = torchmetrics.Recall(average='none', num_classes=N_FEATURES).to(device)
-    test_precision = torchmetrics.Precision(average='none', num_classes=N_FEATURES).to(device)
-    test_F1 = torchmetrics.F1Score(num_classes=N_FEATURES, average='none').to(device)
+    test_recall = torchmetrics.Recall(task="binary",average='none', num_classes=N_FEATURES).to(device)
+    test_precision = torchmetrics.Precision(task="binary",average='none', num_classes=N_FEATURES).to(device)
+    test_F1 = torchmetrics.classification.BinaryF1Score().to(device)
     model.train()
     # enumerate返回为数据和标签还有批次
     for batch, (X, y) in enumerate(dataloader):
+        # print(f"Batch Index: {batch}, X size: {X.size()}, y size: {y.size()}")
         # 前向传播
         X, y = X.to(device), y.to(device)
         output = model(X)
         cur_loss = loss_fn(output, y)
-        # output1 = output.squeeze(-1)
-        # cur_loss = loss_fn(output1, y.float())
+        # output, output2, output1 = model(X)
+        # cur_loss0 = loss_fn(output, y)
+        # cur_loss1 = loss_fn(output1, y)
+        # cur_loss2 = loss_fn(output2, y)
         # torch.max返回每行最大的概率和最大概率的索引,由于批次是16，所以返回16个概率和索引
         _, pred = torch.max(output, axis=1)
-
         # 计算每批次的准确率， output.shape[0]为该批次的多少
         cur_acc = torch.sum(y == pred) / output.shape[0]
+        # cur_loss = cur_loss0 + cur_loss1 * 0.3 + cur_loss2 * 0.3
+
         test_F1(output.argmax(1), y)
         test_recall(output.argmax(1), y)
         test_precision(output.argmax(1), y)
@@ -94,9 +90,9 @@ def train(dataloader, model, loss_fn, optimizer, epoch):
     print("F1 of every test dataset class: ", total_F1)
     writer.add_scalar('Train/Loss', loss / n, epoch)
     writer.add_scalar('Train/Acc', current / n, epoch)
-    writer.add_scalar('Train/Recall', total_recall[1].item(), epoch)
-    writer.add_scalar('Train/Precision', total_precision[1].item(), epoch)
-    writer.add_scalar('Train/F1', total_F1[1].item(), epoch)
+    writer.add_scalar('Train/Recall', total_recall.item(), epoch)
+    writer.add_scalar('Train/Precision', total_precision.item(), epoch)
+    writer.add_scalar('Train/F1', total_F1.item(), epoch)
     test_precision.reset()
     test_recall.reset()
     test_F1.reset()
@@ -104,12 +100,13 @@ def train(dataloader, model, loss_fn, optimizer, epoch):
 
 # 定义验证函数
 def val(dataloader, model, loss_fn, epoch):
+    # print(f"Batch Index: {batch}, X size: {X.size()}, y size: {y.size()}")
     # 将模型转为验证模式
     model.eval()
     loss, current, n = 0.0, 0.0, 0
-    test_recall = torchmetrics.Recall(average='none', num_classes=N_FEATURES).to(device)
-    test_precision = torchmetrics.Precision(average='none', num_classes=N_FEATURES).to(device)
-    test_F1 = torchmetrics.F1Score(average='none', num_classes=N_FEATURES).to(device)
+    test_recall = torchmetrics.Recall(task="binary",average='none', num_classes=N_FEATURES).to(device)
+    test_precision = torchmetrics.Precision(task="binary",average='none', num_classes=N_FEATURES).to(device)
+    test_F1 = torchmetrics.classification.BinaryF1Score().to(device)
     # 非训练，推理期用到（测试时模型参数不用更新， 所以no_grad）
     # print(torch.no_grad)
     with torch.no_grad():
@@ -136,9 +133,9 @@ def val(dataloader, model, loss_fn, epoch):
     print("F1 of every test dataset class: ", total_F1)
     writer.add_scalar('Valid/Loss', loss / n, epoch)
     writer.add_scalar('Valid/Acc', current / n, epoch)
-    writer.add_scalar('Valid/Recall', total_recall[1].item(), epoch)
-    writer.add_scalar('Valid/Precision', total_precision[1].item(), epoch)
-    writer.add_scalar('Valid/F1', total_F1[1].item(), epoch)
+    writer.add_scalar('Valid/Recall', total_recall.item(), epoch)
+    writer.add_scalar('Valid/Precision', total_precision.item(), epoch)
+    writer.add_scalar('Valid/F1', total_F1.item(), epoch)
     test_precision.reset()
     test_recall.reset()
     test_F1.reset()
@@ -146,36 +143,31 @@ def val(dataloader, model, loss_fn, epoch):
     return current / n
 
 if __name__ == '__main__':
-    s = f"DiffLeNet,{train_dir},{valid_dir},batch{BATCH_SIZE},lr{LR},wd{weight_decay}"
+    s = f"Diff_AlexNet_fl,{train_dir},{valid_dir},batch{BATCH_SIZE},lr{LR},wd{weight_decay}"
     writer = SummaryWriter(comment=s)
     # build MyDataset
-    # class_sample_counts = [33288,4128] #compareTrain
-    # class_sample_counts = [38220, 5328]  # fixtrain_test2
-    # class_sample_counts = [32412,3984] # test_rect_train
-    # class_sample_counts = [38220, 5328]
-    # class_sample_counts = [15028,1832]
-    # class_sample_counts = [15394,1832]
-    # class_sample_counts = [45084,5496]
-    # class_sample_counts = [46876,6264] # 数据集不同类别的比例
-    class_sample_counts = [7804,4824] # origin_diff
+    # class_sample_counts = [2464, 1053]  # train_shift
+    class_sample_counts = [7804, 603]  # train_diff
+    # class_sample_counts = [3118, 381]  # train_Area or train_Rect
     weights = 1. / torch.tensor(class_sample_counts, dtype=torch.float)
     # 这个 get_classes_for_all_imgs是关键
     train_data = BuildingDataset(data_dir=train_dir, transform=transform)
     train_targets = train_data.get_classes_for_all_imgs()
     samples_weights = weights[train_targets]
+    # print(f"Weights length: {len(samples_weights)}, Dataset length: {len(samples_weights)}")
     sampler = WeightedRandomSampler(weights=samples_weights, num_samples=len(samples_weights), replacement=True)
 
     valid_data = BuildingDataset(data_dir=valid_dir, transform=transform_val)
 
     # build DataLoader
     train_loader = DataLoader(dataset=train_data, batch_size=BATCH_SIZE, shuffle=False, num_workers=4,
-                              pin_memory=True, sampler=sampler)
+                              pin_memory=True, sampler=sampler, drop_last=True)
     valid_loader = DataLoader(dataset=valid_data, batch_size=BATCH_SIZE, num_workers=4, pin_memory=True,
-                              shuffle=True)
+                              shuffle=True, drop_last=True)
     # AlexNet model and training
-    # net = DifferenceNet(num_classes=N_FEATURES, init_weights=True)
-    net =LeNet5(num_classes=N_FEATURES)
-    # net = GoogleNet(num_class=N_FEATURES)
+    net = DifferenceNet(num_classes=N_FEATURES, init_weights=True)
+    # net =LeNet5(num_classes=N_FEATURES)
+    # net = GoogLeNet(num_classes=N_FEATURES,init_weights=True,aux_logits=True)
     # 模拟输入数据，进行网络可视化
     # input_data = Variable(torch.rand(16, 3, 224, 224))
     # with writer:
@@ -187,8 +179,11 @@ if __name__ == '__main__':
     net.to(device)
 
     # 定义损失函数（交叉熵损失）
-    loss_fn = nn.CrossEntropyLoss()
-    # loss_fn = focal_loss(alpha= [1.12196,9.20306],gamma=2,num_classes=2)
+    # 计算类别权重，权重应当是类别样本数量的倒数
+    # class_weights = torch.tensor([1.0 / class_sample_counts[0], 1.0 / class_sample_counts[1]], dtype=torch.float).to(device)
+    # 将权重传递给损失函数
+    # loss_fn = nn.CrossEntropyLoss()
+    loss_fn = focal_loss(alpha= [0.07163,0.92837],gamma=2,num_classes=2)
     # loss_fn = nn.BCEWithLogitsLoss()
 
     # 定义优化器,SGD,
@@ -205,6 +200,7 @@ if __name__ == '__main__':
     for t in range(epoch):
         start = time.time()
         print(f"epoch{t + 1}\n-------------------")
+        # print(f"Training dataset length: {len(train_loader.dataset)}")
         train(train_loader, net, loss_fn, optimizer, t)
         a = val(valid_loader, net, loss_fn, t)
         lr_scheduler.step()
@@ -216,15 +212,15 @@ if __name__ == '__main__':
                 os.mkdir('save_model')
             min_acc = a
             print('save best model', )
-            torch.save(net.state_dict(), "save_model/diff2/best_model.pth")
+            torch.save(net.state_dict(), "save_model/different/best_model.pth")
         # 保存最后的权重文件
-        torch.save(net.state_dict(), "save_model/diff2/every_model.pth")
+        torch.save(net.state_dict(), "save_model/different/every_model.pth")
         if t == epoch - 1:
-            torch.save(net.state_dict(), "save_model/diff2/last_model.pth")
+            torch.save(net.state_dict(), "save_model/different/last_model.pth")
         finish = time.time()
         time_elapsed = finish - start
         print('本次训练耗时 {:.0f}m {:.0f}s'.format(
             time_elapsed // 60, time_elapsed % 60))
 
     print(f'** Finished Training **')
-    df.to_csv('runs/train.txt', index=True, sep=';')
+    # df.to_csv('runs/train_diff.txt', index=True, sep=';')

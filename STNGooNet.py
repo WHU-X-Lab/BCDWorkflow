@@ -48,9 +48,9 @@ class STN(nn.Module):
         theta[:, 1:, 0:1] = self.theta_fixed
         # print("修改后的theta:", theta)
         # Grid generator
-        grid = F.affine_grid(theta, x.size())
+        grid = F.affine_grid(theta, x.size(), align_corners=True)
         # Sampler
-        x = F.grid_sample(x, grid)
+        x = F.grid_sample(x, grid, align_corners=True)
         return x, theta
 
 

@@ -37,7 +37,7 @@ class ShiftNet(nn.Module):
     def forward(self, x):
         x = self.features(x) # 特征提取
         x = torch.flatten(x, start_dim=1) # 拉伸为一维->融合所需向量！
-        x = self.classifier(x) # 全连接
+        # x = self.classifier(x) # 全连接
         return x
 
     # 参数初始化

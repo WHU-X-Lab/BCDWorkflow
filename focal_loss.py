@@ -35,6 +35,13 @@ class focal_loss(nn.Module):
         :return:
         """
         # assert preds.dim()==2 and labels.dim()==1
+        # 检查 alpha 的大小是否匹配
+        # print(f"Alpha shape: {self.alpha.shape}, preds shape: {preds.shape}")
+        # 确保 alpha 大小匹配类别数
+        if self.alpha.size(0) != preds.size(1):
+            self.alpha = torch.tensor([0.108824, 0.891176]).float()  # 重新设定 alpha
+        assert self.alpha.size(0) == preds.size(1), \
+            f"alpha size {self.alpha.size(0)} doesn't match number of classes {preds.size(1)}"
         preds = preds.view(-1, preds.size(-1))
         self.alpha = self.alpha.to(preds.device)
         preds_logsoft = F.log_softmax(preds, dim=1)  # log_softmax

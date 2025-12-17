@@ -10,18 +10,22 @@ from torch.optim import lr_scheduler
 from torch.utils.data import WeightedRandomSampler, DataLoader
 from torch.utils.tensorboard import SummaryWriter
 import matplotlib.pyplot as plt
-from config_stn import *
+# from config_stn import *
+from config_google import *
 from dataset import BuildingDataset
 # from CUBdataset import CUB
 import pandas as pd
 import torch.nn.functional as F
-from STNLeNet import STNLeNet
+# from STNLeNet import STNLeNet
+# from STNet import STNet
+from STNGooNet import STNGoogLeNet
 import os
 from torchvision import transforms
 import numpy as np
 # import transformsCUB
 import torchvision
 from matplotlib.patches import Rectangle
+from focal_loss import focal_loss
 
 plt.ion()
 # 固定随机数种子
@@ -42,16 +46,28 @@ TEST_STD = [0.23264268069040475, 0.22781080253662814, 0.26667253517177186]
 transform = transforms.Compose([
     transforms.Resize((224, 224)),
     transforms.RandomHorizontalFlip(),
-    transforms.RandomRotation(90),
+    transforms.RandomVerticalFlip(),
+    transforms.RandomRotation(45),
     transforms.ToTensor(),
-    # train_stn
-    # transforms.Normalize(mean=[0.89734197, 0.9392724, 0.9398877], std=[0.17993543, 0.094597824, 0.12841283])
-    # Area
-    # transforms.Normalize(mean=[0.9328658, 0.96335715, 0.96645814], std=[0.13745053, 0.07245668, 0.0951552])
+     # rect_train
+    # transforms.Normalize(mean=[0.89716554, 0.9392292, 0.9398516],std=[0.18011567, 0.09461408, 0.12847571])
+    # area_train
+    transforms.Normalize(mean=[0.9333282, 0.9635094, 0.9664677], std = [0.13711655, 0.0724623, 0.09523336])
+    # fixtrain_test2
+    # transforms.Normalize(mean = [0.891972, 0.93623203, 0.9399001], std = [0.16588122, 0.090553254, 0.12211764])
+    # function_test_5
+    # transforms.Normalize(mean=[0.6729675, 0.83683354, 0.8698382], std= [0.14233042, 0.06358338, 0.12767078])
+    # function_test_10
+    # transforms.Normalize(mean= [0.8168797, 0.89292985, 0.90041393], std=[0.18908584, 0.098543376, 0.14371602])
     # function_test_20_old
-    # transforms.Normalize(mean=[0.9318218, 0.9599232, 0.96266234], std=[0.13674922, 0.07559318, 0.09820192])
+    # transforms.Normalize(mean= [0.9318218, 0.9599232, 0.96266234], std=[0.13674922, 0.07559318, 0.09820192])
     # function_test_20
-    transforms.Normalize(mean=[0.933881, 0.957784, 0.9582756], std=[0.13598508, 0.07826422, 0.10344314])
+    # transforms.Normalize(mean=[0.933881, 0.957784, 0.9582756], std=[0.13598508, 0.07826422, 0.10344314])
+    # train_shift
+    # transforms.Normalize(mean=[0.89928937, 0.9401177, 0.940752], std=[0.17837474, 0.09416142, 0.127091])
+    # origin_diff
+    # transforms.Normalize(mean=[0.92267793, 0.9564475, 0.95871323], std=[0.14974713, 0.079579115, 0.10696194])
+
     # CUB-200-2011鸟类数据集
     # transformsCUB.ToCVImage(),
     # transformsCUB.RandomResizedCrop(224),
@@ -61,22 +77,25 @@ transform = transforms.Compose([
 ])
 transform_val = transforms.Compose([
     transforms.Resize((224, 224)),
-    transforms.RandomHorizontalFlip(),
-    transforms.RandomRotation(90),
     transforms.ToTensor(),
-    # test_rect_train
-    # transforms.Normalize(mean = [0.70381516, 0.8888911, 0.92238843], std =  [0.40284097, 0.11763619, 0.15052465])
-    # test_area_train
-    # transforms.Normalize(mean=[0.84431416, 0.9468392, 0.96895444], std = [0.2916492, 0.08882934, 0.098634705])
-    # valid_stn
-    # transforms.Normalize(mean=[0.8980922, 0.9372042, 0.93724376], std=[0.18020877, 0.09663033, 0.13077204])
+     # rect_valid
+    # transforms.Normalize(mean=[0.8994139, 0.93833137, 0.9385182], std=[0.17848423, 0.09575517, 0.12936021])
+    # area_valid
+    transforms.Normalize(mean=[0.9306144, 0.9633733, 0.96703666], std = [0.13885023, 0.07191164, 0.094978005])
+    # valid_test2
     # transforms.Normalize(mean = [0.8904361, 0.9363585, 0.94014686], std = [0.165799, 0.09002642, 0.12338792])
-    # compareValid
-    # transforms.Normalize(mean = [0.84808147, 0.9096524, 0.91053045], std = [0.20253241, 0.10373465, 0.14877456])
-    # valid_Area
-    # transforms.Normalize(mean=[0.9347815, 0.96474624, 0.9671215], std=[0.13583878, 0.07196212, 0.09568332])
+    # function_test_5_val
+    # transforms.Normalize(mean=[0.67125416, 0.8375651, 0.8712284], std = [0.14200182, 0.064011395, 0.1304606])
+    # function_test_10
+    # transforms.Normalize(mean=[0.8215626, 0.8954368, 0.9014965], std = [0.19241227, 0.100563586, 0.14778145])
+    # function_test_20_old
+    # transforms.Normalize(mean= [0.85530734, 0.9493153, 0.96933824], std=[0.28664276, 0.087741055, 0.098699085])
     # function_test_20
-    transforms.Normalize(mean=[0.92881185, 0.95924205, 0.96284324], std=[0.13795583, 0.07532157, 0.09843103])
+    # transforms.Normalize(mean=[0.92881185, 0.95924205, 0.96284324], std=[0.13795583, 0.07532157, 0.09843103])
+    # valid_shift
+    # transforms.Normalize(mean=[0.9015134, 0.9404643, 0.9405578], std=[0.17577721, 0.09384499, 0.12654929])
+    # valid_diff
+    # transforms.Normalize(mean=[0.92114174, 0.95562017, 0.95702595], std=[0.15157486, 0.080639265, 0.10978778])
 
     # CUB-200-2011鸟类数据集
     # transformsCUB.ToCVImage(),
@@ -91,26 +110,26 @@ df = pd.DataFrame(columns=['loss', 'accuracy'])
 # 定义训练函数
 def train(dataloader, model, loss_fn, optimizer, epoch):
     loss, current, n = 0.0, 0.0, 0
-    test_recall = torchmetrics.Recall(average='none', num_classes=N_FEATURES).to(device)
-    test_precision = torchmetrics.Precision(average='none', num_classes=N_FEATURES).to(device)
-    test_F1 = torchmetrics.F1Score(num_classes=N_FEATURES, average='none').to(device)
+    test_recall = torchmetrics.Recall(task="binary",average='none', num_classes=N_FEATURES).to(device)
+    test_precision = torchmetrics.Precision(task="binary",average='none', num_classes=N_FEATURES).to(device)
+    test_F1 = torchmetrics.classification.BinaryF1Score().to(device)
     model.train()
     # enumerate返回为数据和标签还有批次
     for batch, (X, y) in enumerate(dataloader):
         # 前向传播
         X, y = X.to(device), y.to(device)
-        output = model(X)
-        # output, output2, output1 = model(X)
+        # output = model(X)
+        output, output2, output1 = model(X)
         cur_loss0 = loss_fn(output, y)
-        # cur_loss1 = loss_fn(output1, y)
-        # cur_loss2 = loss_fn(output2, y)
+        cur_loss1 = loss_fn(output1, y)
+        cur_loss2 = loss_fn(output2, y)
 
         # torch.max返回每行最大的概率和最大概率的索引,由于批次是16，所以返回16个概率和索引
         _, pred = torch.max(output, axis=1)
 
         # 计算每批次的准确率， output.shape[0]为该批次的多少
         cur_acc = torch.sum(y == pred) / output.shape[0]
-        cur_loss = cur_loss0  # + cur_loss1 * 0.3 + cur_loss2 * 0.3
+        cur_loss = cur_loss0 + cur_loss1 * 0.3 + cur_loss2 * 0.3
         # test_acc(output.argmax(1), y)
         test_F1(output.argmax(1), y)
         test_recall(output.argmax(1), y)
@@ -134,9 +153,9 @@ def train(dataloader, model, loss_fn, optimizer, epoch):
     print("F1 of every test dataset class: ", total_F1)
     writer.add_scalar('Train/Loss', loss / n, epoch)
     writer.add_scalar('Train/Acc', current / n, epoch)
-    writer.add_scalar('Train/Recall', total_recall[1].item(), epoch)
-    writer.add_scalar('Train/Precision', total_precision[1].item(), epoch)
-    writer.add_scalar('Train/F1', total_F1[1].item(), epoch)
+    writer.add_scalar('Train/Recall', total_recall.item(), epoch)
+    writer.add_scalar('Train/Precision', total_precision.item(), epoch)
+    writer.add_scalar('Train/F1', total_F1.item(), epoch)
     test_precision.reset()
     test_recall.reset()
     test_F1.reset()
@@ -147,9 +166,9 @@ def val(dataloader, model, loss_fn, epoch):
     # 将模型转为验证模式
     model.eval()
     loss, current, n = 0.0, 0.0, 0
-    test_recall = torchmetrics.Recall(average='none', num_classes=N_FEATURES).to(device)
-    test_precision = torchmetrics.Precision(average='none', num_classes=N_FEATURES).to(device)
-    test_F1 = torchmetrics.F1Score(average='none', num_classes=N_FEATURES).to(device)
+    test_recall = torchmetrics.Recall(task="binary",average='none', num_classes=N_FEATURES).to(device)
+    test_precision = torchmetrics.Precision(task="binary",average='none', num_classes=N_FEATURES).to(device)
+    test_F1 = torchmetrics.classification.BinaryF1Score().to(device)
     # 非训练，推理期用到（测试时模型参数不用更新， 所以no_grad）
     # print(torch.no_grad)
     with torch.no_grad():
@@ -176,9 +195,9 @@ def val(dataloader, model, loss_fn, epoch):
     print("F1 of every test dataset class: ", total_F1)
     writer.add_scalar('Valid/Loss', loss / n, epoch)
     writer.add_scalar('Valid/Acc', current / n, epoch)
-    writer.add_scalar('Valid/Recall', total_recall[1].item(), epoch)
-    writer.add_scalar('Valid/Precision', total_precision[1].item(), epoch)
-    writer.add_scalar('Valid/F1', total_F1[1].item(), epoch)
+    writer.add_scalar('Valid/Recall', total_recall.item(), epoch)
+    writer.add_scalar('Valid/Precision', total_precision.item(), epoch)
+    writer.add_scalar('Valid/F1', total_F1.item(), epoch)
     test_precision.reset()
     test_recall.reset()
     test_F1.reset()
@@ -307,14 +326,12 @@ def visualize_stn(model):
 
 
 if __name__ == '__main__':
-    s = f"STNLeNet,{train_dir},{valid_dir},batch{BATCH_SIZE},lr{LR},wd{weight_decay}"
+    s = f"STNGoogleNet,{train_dir},{valid_dir},batch{BATCH_SIZE},lr{LR},wd{weight_decay}"
     writer = SummaryWriter(comment=s)
     # build MyDataset
-    # class_sample_counts = [33288,4128] #compareTrain
-    # class_sample_counts = [3257, 381]  # train_stn
-    # class_sample_counts = [33444, 4128]  # function_test_20_old
-    class_sample_counts = [8376, 4128]  # function_test_20
-    # class_sample_counts = [3118, 281]  # Area or Rect
+    # class_sample_counts = [2464, 1053]  # train_shift
+    # class_sample_counts = [7804, 603]  # train_diff
+    class_sample_counts = [3118, 381]  # train_Area or train_Rect
     weights = 1. / torch.tensor(class_sample_counts, dtype=torch.float)
     # 建筑数据集读取
     # 这个 get_classes_for_all_imgs是关键
@@ -360,9 +377,9 @@ if __name__ == '__main__':
     # )
 
     # AlexNet model and training
-    net = STNLeNet(num_classes=N_FEATURES)
+    # net = STNLeNet(num_classes=N_FEATURES)
     # net = STNet(num_classes=N_FEATURES, init_weights=True)
-    # net = STNGoogLeNet(num_classes=N_FEATURES)
+    net = STNGoogLeNet(num_classes=N_FEATURES)
     # net = GoogLeNet(num_classes=N_FEATURES)
     # 模拟输入数据，进行网络可视化
     # input_data = Variable(torch.rand(16, 3, 224, 224))
@@ -378,9 +395,12 @@ if __name__ == '__main__':
     model = net.to(device)
 
     # 定义损失函数（交叉熵损失）
-    loss_fn = nn.CrossEntropyLoss()
-    # loss_fn = focal_loss(alpha= [1.12196,9.20306],gamma=2,num_classes=2)
-    # loss_fn = nn.BCEWithLogitsLoss()
+    # 计算类别权重，权重应当是类别样本数量的倒数
+    class_weights = torch.tensor([1.0 / class_sample_counts[0], 1.0 / class_sample_counts[1]], dtype=torch.float).to(device)
+    # 将权重传递给损失函数
+    # loss_fn = nn.CrossEntropyLoss()
+    loss_fn = focal_loss(alpha= [0.108824,0.891176],gamma=2,num_classes=2)
+    # loss_fn = nn.BCEWithLogitsLoss(weight=class_weights)
 
     # 定义优化器,SGD,
     # optimizer = optim.Adam(net.parameters(), lr=LR,weight_decay=weight_decay)
@@ -407,11 +427,11 @@ if __name__ == '__main__':
                 os.mkdir('save_model')
             min_acc = a
             print('save best model', )
-            torch.save(net.state_dict(), "save_model/stn/best_model.pth")
+            torch.save(net.state_dict(), "save_model/area_stnGoo/best_model.pth")
         # 保存最后的权重文件
-        torch.save(net.state_dict(), "save_model/stn/every_model.pth")
+        torch.save(net.state_dict(), "save_model/area_stnGoo/every_model.pth")
         if t == epoch - 1:
-            torch.save(net.state_dict(), "save_model/stn/last_model.pth")
+            torch.save(net.state_dict(), "save_model/area_stnGoo/last_model.pth")
         finish = time.time()
         time_elapsed = finish - start
         print('本次训练耗时 {:.0f}m {:.0f}s'.format(
@@ -420,4 +440,4 @@ if __name__ == '__main__':
     # plt.ioff()
     # plt.show()
     print(f'** Finished Training **')
-    df.to_csv('runs/train.txt', index=True, sep=';')
+    # df.to_csv('runs/train.txt', index=True, sep=';')

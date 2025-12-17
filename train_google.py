@@ -12,10 +12,12 @@ from torch.utils.tensorboard import SummaryWriter
 # from model import LeNet
 from GoogleNet import GoogLeNet
 from config_google import *
+# from config_diff import *
+# from config_shift import *
 from dataset import BuildingDataset
 import pandas as pd
 import os
-# from focal_loss import focal_loss
+from focal_loss import focal_loss
 from torch.utils.data import WeightedRandomSampler
 from torchvision import transforms
 import torchmetrics
@@ -37,50 +39,32 @@ torch.backends.cudnn.benchmark = False
 
 transform = transforms.Compose([
     transforms.Resize((224, 224)),
-    # transforms.RandomRotation(90),
+    transforms.RandomRotation(45),
     transforms.RandomHorizontalFlip(),
+    transforms.RandomVerticalFlip(),
     transforms.ToTensor(),
-    # test_rect_train
-    # transforms.Normalize(mean = [0.70381516, 0.8888911, 0.92238843], std =  [0.40284097, 0.11763619, 0.15052465])
-    # test_area_train
-    # transforms.Normalize(mean=[0.84431416, 0.9468392, 0.96895444], std = [0.2916492, 0.08882934, 0.098634705])
-    # fixtrain_test2
-    # transforms.Normalize(mean = [0.891972, 0.93623203, 0.9399001], std = [0.16588122, 0.090553254, 0.12211764])
-    # function_test_5
-    # transforms.Normalize(mean=[0.6729675, 0.83683354, 0.8698382], std= [0.14233042, 0.06358338, 0.12767078])
-    # function_test_10
-    # transforms.Normalize(mean= [0.8168797, 0.89292985, 0.90041393], std=[0.18908584, 0.098543376, 0.14371602])
-    # function_test_20_old
-    # transforms.Normalize(mean= [0.9318218, 0.9599232, 0.96266234], std=[0.13674922, 0.07559318, 0.09820192])
-    # function_test_20
-    transforms.Normalize(mean=[0.933881, 0.957784, 0.9582756], std=[0.13598508, 0.07826422, 0.10344314])
+    # rect_train
+    # transforms.Normalize(mean=[0.89716554, 0.9392292, 0.9398516],std=[0.18011567, 0.09461408, 0.12847571])
+    # area_train
+    transforms.Normalize(mean=[0.9333282, 0.9635094, 0.9664677], std = [0.13711655, 0.0724623, 0.09523336])
+
     # train_shift
-    # transforms.Normalize(mean=[0.89731014, 0.9391688, 0.9396487], std=[0.18013711, 0.09479259, 0.12887895])
+    # transforms.Normalize(mean=[0.89742166, 0.9391391, 0.9396217], std=[0.18003607, 0.09479778, 0.1287403])
     # origin_diff
-    # transforms.Normalize(mean=[0.918039, 0.9500407, 0.9504322], std=[0.15249752, 0.08265463, 0.11152452])
+    # transforms.Normalize(mean=[0.9250994, 0.9588776, 0.961942], std=[0.14851464, 0.07733698, 0.101837136])
 ])
 transform_val = transforms.Compose([
     transforms.Resize((224, 224)),
-    transforms.RandomHorizontalFlip(),
     transforms.ToTensor(),
-    # test_rect_train
-    # transforms.Normalize(mean = [0.70381516, 0.8888911, 0.92238843], std =  [0.40284097, 0.11763619, 0.15052465])
-    # test_area_train
-    # transforms.Normalize(mean=[0.84431416, 0.9468392, 0.96895444], std = [0.2916492, 0.08882934, 0.098634705])
-    # valid_test2
-    # transforms.Normalize(mean = [0.8904361, 0.9363585, 0.94014686], std = [0.165799, 0.09002642, 0.12338792])
-    # function_test_5_val
-    # transforms.Normalize(mean=[0.67125416, 0.8375651, 0.8712284], std = [0.14200182, 0.064011395, 0.1304606])
-    # function_test_10
-    # transforms.Normalize(mean=[0.8215626, 0.8954368, 0.9014965], std = [0.19241227, 0.100563586, 0.14778145])
-    # function_test_20_old
-    # transforms.Normalize(mean= [0.85530734, 0.9493153, 0.96933824], std=[0.28664276, 0.087741055, 0.098699085])
-    # function_test_20
-    transforms.Normalize(mean=[0.92881185, 0.95924205, 0.96284324], std=[0.13795583, 0.07532157, 0.09843103])
+    # rect_valid
+    # transforms.Normalize(mean=[0.8994139, 0.93833137, 0.9385182], std=[0.17848423, 0.09575517, 0.12936021])
+    # area_valid
+    transforms.Normalize(mean=[0.9306144, 0.9633733, 0.96703666], std = [0.13885023, 0.07191164, 0.094978005])
+
     # valid_shift
-    # transforms.Normalize(mean=[0.89881814, 0.9392697, 0.9402372], std=[0.17823705, 0.09425104, 0.12656842])
+    # transforms.Normalize(mean=[0.8978054, 0.9395365, 0.94048536], std=[0.17915142, 0.09420377, 0.12782192])
     # valid_diff
-    # transforms.Normalize(mean=[0.9262576, 0.9596687, 0.9627389], std=[0.1469692, 0.07660995, 0.10082596])
+    # transforms.Normalize(mean=[0.9269143, 0.9598757, 0.96309], std=[0.14659306, 0.076451726, 0.10049462])
 ])
 
 df = pd.DataFrame(columns=['loss', 'accuracy'])
@@ -90,9 +74,9 @@ df = pd.DataFrame(columns=['loss', 'accuracy'])
 def train(dataloader, model, loss_fn, optimizer, epoch):
     loss, current, n = 0.0, 0.0, 0
     # test_acc = torchmetrics.Accuracy().to(device)
-    test_recall = torchmetrics.Recall(average='none', num_classes=N_FEATURES).to(device)
-    test_precision = torchmetrics.Precision(average='none', num_classes=N_FEATURES).to(device)
-    test_F1 = torchmetrics.F1Score(num_classes=N_FEATURES, average='none').to(device)
+    test_recall = torchmetrics.Recall(task="binary",average='none', num_classes=N_FEATURES).to(device)
+    test_precision = torchmetrics.Precision(task="binary",average='none', num_classes=N_FEATURES).to(device)
+    test_F1 = torchmetrics.classification.BinaryF1Score().to(device)
     model.train()
     # enumerate返回为数据和标签还有批次
     for batch, (X, y) in enumerate(dataloader):
@@ -143,9 +127,9 @@ def train(dataloader, model, loss_fn, optimizer, epoch):
     print("F1 of every test dataset class: ", total_F1)
     writer.add_scalar('Train/Loss', loss / n, epoch)
     writer.add_scalar('Train/Acc', current / n, epoch)
-    writer.add_scalar('Train/Recall', total_recall[1].item(), epoch)
-    writer.add_scalar('Train/Precision', total_precision[1].item(), epoch)
-    writer.add_scalar('Train/F1', total_F1[1].item(), epoch)
+    writer.add_scalar('Train/Recall', total_recall.item(), epoch)
+    writer.add_scalar('Train/Precision', total_precision.item(), epoch)
+    writer.add_scalar('Train/F1', total_F1.item(), epoch)
     test_precision.reset()
     test_recall.reset()
     test_F1.reset()
@@ -156,9 +140,9 @@ def val(dataloader, model, loss_fn, epoch):
     # 将模型转为验证模式
     model.eval()
     loss, current, n = 0.0, 0.0, 0
-    test_recall = torchmetrics.Recall(average='none', num_classes=N_FEATURES).to(device)
-    test_precision = torchmetrics.Precision(average='none', num_classes=N_FEATURES).to(device)
-    test_F1 = torchmetrics.F1Score(average='none', num_classes=N_FEATURES).to(device)
+    test_recall = torchmetrics.Recall(task="binary",average='none', num_classes=N_FEATURES).to(device)
+    test_precision = torchmetrics.Precision(task="binary",average='none', num_classes=N_FEATURES).to(device)
+    test_F1 = torchmetrics.classification.BinaryF1Score().to(device)
     # 非训练，推理期用到（测试时模型参数不用更新， 所以no_grad）
     # print(torch.no_grad)
     with torch.no_grad():
@@ -187,9 +171,9 @@ def val(dataloader, model, loss_fn, epoch):
     print("F1 of every test dataset class: ", total_F1)
     writer.add_scalar('Valid/Loss', loss / n, epoch)
     writer.add_scalar('Valid/Acc', current / n, epoch)
-    writer.add_scalar('Valid/Recall', total_recall[1].item(), epoch)
-    writer.add_scalar('Valid/Precision', total_precision[1].item(), epoch)
-    writer.add_scalar('Valid/F1', total_F1[1].item(), epoch)
+    writer.add_scalar('Valid/Recall', total_recall.item(), epoch)
+    writer.add_scalar('Valid/Precision', total_precision.item(), epoch)
+    writer.add_scalar('Valid/F1', total_F1.item(), epoch)
     test_precision.reset()
     test_recall.reset()
     test_F1.reset()
@@ -355,17 +339,12 @@ def visualize_stn2(model):
 
 
 if __name__ == '__main__':
-    s = f"STNGoogleNet,{train_dir},{valid_dir},batch{BATCH_SIZE},lr{LR},wd{weight_decay_f}"
-    # writer = SummaryWriter(comment=s)
+    s = f"GoogleNet_Area_lf,{train_dir},{valid_dir},batch{BATCH_SIZE},lr{LR},wd{weight_decay_f}"
+    writer = SummaryWriter(comment=s)
     # build MyDataset
-    # class_sample_counts = [32412,3984] # test_rect_train
-    # class_sample_counts = [38220, 5328] # fixtrain_test2
-    # class_sample_counts = [33444,4128] #function_test_5
-    # class_sample_counts = [33456,4128] #function_test_10
-    # class_sample_counts = [33444, 4128]  # function_test_20_old
-    class_sample_counts = [8376, 4128]  # function_test_20
     # class_sample_counts = [2464, 1053]  # train_shift
-    # class_sample_counts = [7804, 4824]  # origin_diff
+    # class_sample_counts = [7804, 603]  # train_diff
+    class_sample_counts = [3118, 381]  # train_Area or train_Rect
     weights = 1. / torch.tensor(class_sample_counts, dtype=torch.float)
     # 这个 get_classes_for_all_imgs是关键
     train_data = BuildingDataset(data_dir=train_dir, transform=transform)
@@ -383,8 +362,8 @@ if __name__ == '__main__':
     # net = AlexNet(num_classes=N_FEATURES, init_weights=True)
     # net = DifferenceNet(num_classes=N_FEATURES, init_weights=True)
     # net = LeNet5(num_classes=N_FEATURES)
-    # net = GoogLeNet(num_classes=N_FEATURES,init_weights=True,aux_logits=True)
-    net = STNGoogLeNet(num_classes=N_FEATURES, init_weights=True, aux_logits=True)
+    net = GoogLeNet(num_classes=N_FEATURES,init_weights=True,aux_logits=True)
+    # net = STNGoogLeNet(num_classes=N_FEATURES, init_weights=True, aux_logits=True)
     # 模拟输入数据，进行网络可视化
     # input_data = Variable(torch.rand(16, 3, 224, 224))
     # with writer:
@@ -393,12 +372,15 @@ if __name__ == '__main__':
     # if torch.cuda.device_count() > 1:
     #     print("Use", torch.cuda.device_count(), 'gpus')
     #     net = nn.DataParallel(net)
-    net.load_state_dict(torch.load('./save_model/stn/last_model.pth'), False)
+    # net.load_state_dict(torch.load('./save_model/stn/last_model.pth'), False)
     model = net.to(device)
     # 定义损失函数（交叉熵损失）
-    loss_fn = nn.CrossEntropyLoss()
-    # loss_fn = focal_loss(alpha= [1.12196,9.20306],gamma=2,num_classes=2)
-    # loss_fn = nn.BCEWithLogitsLoss()
+    # 计算类别权重，权重应当是类别样本数量的倒数
+    # class_weights = torch.tensor([1.0 / class_sample_counts[0], 1.0 / class_sample_counts[1]], dtype=torch.float).to(device)
+    # 将权重传递给损失函数
+    # loss_fn = nn.CrossEntropyLoss()
+    loss_fn = focal_loss(alpha= [0.108824,0.891176],gamma=2,num_classes=2)
+    # loss_fn = nn.BCEWithLogitsLoss(weight=class_weights)
 
     # 定义优化器,SGD,
     # optimizer = optim.Adam(net.parameters(), lr=LR, weight_decay=weight_decay_f)
@@ -411,36 +393,36 @@ if __name__ == '__main__':
     # print(f"Total number of GoogleNet+2STN parameters: {total_params}")
 
     # 开始训练
-    # epoch = MAX_EPOCH
-    # min_acc = 0
-    # train_num = len(train_loader)
-    # for t in range(epoch):
-    #     start = time.time()
-    #     print(f"epoch{t + 1}\n-------------------")
-    #     train(train_loader, net, loss_fn, optimizer, t)
-    #     a = val(valid_loader, net, loss_fn, t)
-    #     lr_scheduler.step()
-    #     print("目前学习率:", optimizer.param_groups[0]['lr'])
-    #     # 保存最好的模型权重文件
-    #     if a > min_acc:
-    #         folder = 'save_model'
-    #         if not os.path.exists(folder):
-    #             os.mkdir('save_model')
-    #         min_acc = a
-    #         print('save best model', )
-    #         torch.save(net.state_dict(), "save_model/stn/best_model.pth")
-    #     torch.save(net.state_dict(), "save_model/stn/every_model.pth")
-    #     # if float(a) < float(85) :
-    #     #     torch.save(net.state_dict(), "save_model/diff_Goo/lunwen_model.pth")
-    #     # 保存最后的权重文件
-    #     if t == epoch - 1:
-    #         torch.save(net.state_dict(), "save_model/stn/last_model.pth")
-    #     finish = time.time()
-    #     time_elapsed = finish - start
-    #     print('本次训练耗时 {:.0f}m {:.0f}s'.format(
-    #         time_elapsed // 60, time_elapsed % 60))
-    visualize_stn2(model)
-    plt.ioff()
-    plt.show()
+    epoch = MAX_EPOCH
+    min_acc = 0
+    train_num = len(train_loader)
+    for t in range(epoch):
+        start = time.time()
+        print(f"epoch{t + 1}\n-------------------")
+        train(train_loader, net, loss_fn, optimizer, t)
+        a = val(valid_loader, net, loss_fn, t)
+        lr_scheduler.step()
+        print("目前学习率:", optimizer.param_groups[0]['lr'])
+        # 保存最好的模型权重文件
+        if a > min_acc:
+            folder = 'save_model'
+            if not os.path.exists(folder):
+                os.mkdir('save_model')
+            min_acc = a
+            print('save best model', )
+            torch.save(net.state_dict(), "save_model/area_Goo/best_model.pth")
+        torch.save(net.state_dict(), "save_model/area_Goo/every_model.pth")
+        # if float(a) < float(85) :
+        #     torch.save(net.state_dict(), "save_model/diff_Goo/lunwen_model.pth")
+        # 保存最后的权重文件
+        if t == epoch - 1:
+            torch.save(net.state_dict(), "save_model/area_Goo/last_model.pth")
+        finish = time.time()
+        time_elapsed = finish - start
+        print('本次训练耗时 {:.0f}m {:.0f}s'.format(
+            time_elapsed // 60, time_elapsed % 60))
+    # visualize_stn(model)
+    # plt.ioff()
+    # plt.show()
     print(f'** Finished Training **')
     # df.to_csv('runs/train_focal.txt', index=True, sep=';')

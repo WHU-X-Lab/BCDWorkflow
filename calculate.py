@@ -31,5 +31,5 @@ transform = transforms.Compose([
     transforms.ToTensor(),
 ])
 if __name__ == '__main__':
-    train_dataset = ImageFolder(root=r'origin_diff', transform=transform)
+    train_dataset = ImageFolder(root='train_area', transform=transform)
     print(getStat(train_dataset))

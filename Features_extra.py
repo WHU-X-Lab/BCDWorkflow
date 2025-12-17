@@ -6,7 +6,7 @@ from ShiftNet import ShiftNet
 from torchvision import transforms
 import os
 from PIL import Image
-
+from GoogleNet import GoogLeNet
 
 
 
@@ -26,35 +26,41 @@ def extractors(img_path, save_path, net):
     # print(torch.no_grad)
     with torch.no_grad():
         output = net(image)
-        print("img:", img_path, "; output", output.shape)
+        # print("img:", img_path, "; output", output.shape)
     output = torch.squeeze(output)
     output = output.cpu().detach().numpy()
     np.save(save_path, output)
 
 
 if __name__ == '__main__':
-    image_dir1 = "predict_diff"
-    image_dir2 = "predict_shift"
+    image_dir1 = "full_diff"
+    image_dir2 = "full_shift"
     dirs = []
     label = 0
-    save_path = 'features'
+    save_path1 = 'features_diff'
+    save_path2 = 'features_shift'
+    if not os.path.exists(save_path1):
+        os.makedirs(save_path1)
+    if not os.path.exists(save_path2):
+        os.makedirs(save_path2)
     # 载入模型参数
     net1 = DifferenceNet(num_classes=2, init_weights=True)
-    net1.load_state_dict(torch.load(r'save_model\different\last_model.pth'))
+    # net1 = GoogLeNet(num_classes=2)
+    net1.load_state_dict(torch.load('save_model/different/last_model.pth'))
     net1.cuda()
     # 遍历样本数据，依次提取特征
     for jpeg in os.listdir(image_dir1):
         test_img1 = os.path.join(image_dir1, jpeg)
-        save_feature_path1 = os.path.join(save_path,jpeg)
+        save_feature_path1 = os.path.join(save_path1,jpeg)
         if os.path.exists(save_feature_path1) == False:
             os.mkdir(save_feature_path1)
         extractors(test_img1, save_feature_path1, net1)
     net2 = ShiftNet(num_classes=2, init_weights=True)
-    net2.load_state_dict(torch.load(r'save_model\shifted\last_model.pth'))
+    net2.load_state_dict(torch.load('save_model/shift/last_model.pth'))
     net2.cuda()
     for jpeg in os.listdir(image_dir2):
         test_img2 = os.path.join(image_dir2, jpeg)
-        save_feature_path2 = os.path.join(save_path,jpeg)
+        save_feature_path2 = os.path.join(save_path2,jpeg)
         if os.path.exists(save_feature_path2) == False:
             os.mkdir(save_feature_path2)
         extractors(test_img2, save_feature_path2, net2)
