@@ -59,8 +59,8 @@ python inference/predict.py --model_path ./save_models/ --input_dir ./test_pairs
 title={A workflow of deep models with concept learning and domain-specific attention for change detection in vector building footprints},
 author={Zhang, Xiang and Li, Ruolan and Shen, Yilang},
 journal={Transactions in GIS},
-year={2025}},
-doi ={10.1111/tgis.70172} 
-url ={https://doi.org/10.1111/tgis .70172}
+year={2025},
+doi ={10.1111/tgis.70172}, 
+url ={https://doi.org/10.1111/tgis .70172}}
 ```
 
