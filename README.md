@@ -27,7 +27,6 @@ The study addresses a challenging change detection problem in heterogeneous vect
 
 ```python
 ├── models/              # Implementations of CNN backbones (AlexNet, GoogLeNet, ResNet, etc.)
-├── save_models/         # Model weight files(.pth) saved during different stages
 ├── training/            # Multi-stage training scripts for discrepancy, displacement, and change tasks
 ├── inference/           # Scripts to run the full workflow on new data
 ├── utils/               # Helper functions (attention mechanisms, sampling, evaluation)
@@ -63,5 +62,3 @@ journal={Submitted},
 year={2025}}
 ```
 
-## Development Status
- This repository contains an initial implementation. Code structure and style will be refined in subsequent updates. 
